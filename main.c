@@ -146,6 +146,7 @@ void receive_data()
     show_begin();
     
     //receive from light
+    //RC3
     unsigned char r = '0';
     for(int i = 0; i < 64; ++i){
         recv_buf[i] = r;
