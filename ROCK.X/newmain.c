@@ -37,10 +37,18 @@ void out_reset();
 void out_test();
 void delay(int delay_time);
 
-void interrupt isr()
+void interrupt irs_routine()
 {
     //TODO: 
     enable_out();
+    
+    out_reset();
+    
+    out_test();
+    
+    delay(10);
+    
+    disable_out();
     
     if(LATCbits.LATC1 == 0){
         goto Exit;
@@ -77,19 +85,7 @@ void main(void) {
     }
     */
     
-    
-    //the fllowing is test program
-    enable_out();
-    
-    out_reset();
-    
-    out_test();
-    
-    delay(10);
-    
-    disable_out();
     while(1);
-    //the above is test program
     
     return;
 }
@@ -110,10 +106,10 @@ void init_port()
     ANSELCbits.ANSC0 = 0;
     WPUCbits.WPUC0 = 1;
     
-    //sw_hg -> RC1
-    TRISCbits.TRISC1 = 1;
-    ANSELCbits.ANSC1 = 0;
-    WPUCbits.WPUC1 = 1;
+    //sw_hg -> RA5
+    TRISAbits.TRISA5 = 1;
+    ANSELAbits.ANSA5 = 0;
+    WPUAbits.WPUA5 = 1;
     
     //LDR -> RC3
     TRISCbits.TRISC3 = 1;
@@ -134,11 +130,11 @@ void init_port()
 void set_interrupt()
 {
     //TODO: set it
-    INTCONbits.GIE = 0;
+    INTCONbits.GIE = 1;
     PIE0bits.INTE = 1;
     
-    INTCONbits.INTEDG = 1;
-    INTPPS = 0x00;
+    INTCONbits.INTEDG = 0;
+    INTPPS = 0x05;
 }
 
 
