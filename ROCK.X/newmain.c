@@ -40,11 +40,12 @@ void enable_out();
 void disable_out();
 void set_interrupt();
 void out_reset();
-
-void out_test();
 void delay(int delay_time);
 
-unsigned char font_arr[64] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+void wrdt2eeprom();
+void load_data_from_eeprom();
+
+unsigned char font_arr[64] = {0x01, 0x82, 0x03, 0x84, 0x05, 0x06, 0x07, 0x08,
                               0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
                               0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
                               0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
@@ -118,20 +119,19 @@ void main(void) {
     set_clc();
     
     //TODO:receive data from app
-    /*
+    load_data_from_eeprom();
+
     while(1){
-        if(LATCbits.LATC0 == 0){
+        if(PORTCbits.RC0 == 0){
              // forbid interrupts
             INTCONbits.GIE = 0;
             // data recive
-            recv_data();
+            wrdt2eeprom(); //recv_data();
+            load_data_from_eeprom();
             // allow interrupts
             INTCONbits.GIE = 1;
         }
     }
-    */
-    
-    while(1);
     
     return;
 }
@@ -282,6 +282,42 @@ void set_clc()
     //CLC1CONbits.LC1EN = 1;
 }
 
+
+void load_data_from_eeprom()
+{
+    unsigned char low_addr = 0x21;
+    int font_add = 0;
+    NVMCON1bits.NVMREGS = 1; //select EEPROM
+    NVMADRH = 0x70;
+
+    for(int i = 0; i < 64; ++i, ++low_addr){
+        NVMADRL = low_addr;
+        NVMCON1bits.RD = 1;
+        while(NVMCON1bits.RD != 0);
+        font_arr[font_add + i] = NVMDATL;
+    }
+}
+
+void wrdt2eeprom()
+{
+    NVMCON1bits.NVMREGS = 1;
+    NVMCON1bits.WREN = 1;
+    NVMDATH = 0;
+    NVMADRH = 0x70;
+    NVMADRL = 0x20;
+
+    for(int i = 0; i < 64; ++i){
+        NVMDATL = 0xc0 + i;
+        NVMADRL += 1;
+        // UNLOCK NVM
+        NVMCON2 = 0x55;
+        NVMCON2 = 0xAA;
+        NVMCON1bits.WR = 1;
+
+        while(NVMCON1bits.WR != 0);
+    }
+}
+
 void enable_out()
 {
     //ensble eusart
@@ -296,6 +332,7 @@ void enable_out()
 
 void disable_out()
 {
+    delay(100);
     //ensble eusart
     TX1STAbits.TXEN = 0;
     
