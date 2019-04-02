@@ -3,29 +3,22 @@
 
 #include <xc.h>
 
-#define TURN_OFF do{ \
-    while(PIR3bits.TXIF != 1); \
-    TX1REG = 0x00; \
-    while(PIR3bits.TXIF != 1); \
-    TX1REG = 0x00; \
-    while(PIR3bits.TXIF != 1); \
-    TX1REG = 0x00; \
-} while(0);
+#define OFF 0x00;
 
-
-#define TURN_ON do{ \
+#define TURN_ON(_r, _g, _b) do{ \
     while(PIR3bits.TXIF != 1); \
-    TX1REG = 0x10; \
+    TX1REG = _g; \
     while(PIR3bits.TXIF != 1); \
-    TX1REG = 0x00; \
+    TX1REG = _r; \
     while(PIR3bits.TXIF != 1); \
-    TX1REG = 0x20; \
+    TX1REG = _b; \
 } while(0);
 
 #define TURN_ALL do{ \
-    int i = 16; \
+    int i = 48; \
     while(i > 0){ \
-        TURN_OFF; \
+        while(PIR3bits.TXIF != 1); \
+        TX1REG = OFF; \
         --i; \
     } \
 } while(0);
@@ -45,14 +38,16 @@ void delay(int delay_time);
 void wrdt2eeprom();
 void load_data_from_eeprom();
 
-unsigned char font_arr[64] = {0x01, 0x82, 0x03, 0x84, 0x05, 0x06, 0x07, 0x08,
-                              0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
-                              0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-                              0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
-                              0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
-                              0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30,
-                              0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
-                              0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40};
+unsigned char font_arr[64] = {0x01, 0x00, 0x03, 0x00, 0x07, 0x00, 0x0f, 0x00,
+                              0x1f, 0x00, 0x3f, 0x00, 0x7f, 0x00, 0xff, 0x00,
+                              0xff, 0x01, 0xff, 0x03, 0xff, 0x07, 0xff, 0x0f,
+                              0xff, 0x1f, 0xff, 0x3f, 0xff, 0x7f, 0xff, 0xff,
+                              0xff, 0x7f, 0xff, 0x3f, 0xff, 0x1f, 0xff, 0x0f,
+                              0xff, 0x07, 0xff, 0x03, 0xff, 0x01, 0xff, 0x00,
+                              0x7f, 0x00, 0x3f, 0x00, 0x1f, 0x00, 0x0f, 0x00,
+                              0x07, 0x00, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00};
+
+unsigned char r = 0x04, g = 0x00, b = 0x04;
 
 void interrupt irs_routine()
 {
@@ -78,18 +73,17 @@ void interrupt irs_routine()
         
         //show the bit from font
         if((font >> buf_bit) & 0x01 == 1){
-            TURN_ON;
+            TURN_ON(r, g, b);
         }
         else{
-            TURN_OFF;
+            TURN_ON(OFF, OFF, OFF);
         }
         
         ++buf_bit;
         if(++i == 16){
             i = 0;
             disable_out();
-            for(int j=0; j < 25; ++j)
-                delay(20000);
+            delay(20000);
             enable_out();
             out_reset();
             
@@ -119,7 +113,7 @@ void main(void) {
     set_clc();
     
     //TODO:receive data from app
-    load_data_from_eeprom();
+    //load_data_from_eeprom();
 
     while(1){
         if(PORTCbits.RC0 == 0){
