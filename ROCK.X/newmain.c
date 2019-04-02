@@ -14,15 +14,6 @@
     TX1REG = _b; \
 } while(0);
 
-#define TURN_ALL do{ \
-    int i = 48; \
-    while(i > 0){ \
-        while(PIR3bits.TXIF != 1); \
-        TX1REG = OFF; \
-        --i; \
-    } \
-} while(0);
-
 void init_oc();
 void set_pps();
 void set_cwg();
@@ -33,6 +24,7 @@ void enable_out();
 void disable_out();
 void set_interrupt();
 void out_reset();
+void turn_off_all(int num);
 void delay(int delay_time);
 
 void wrdt2eeprom();
@@ -47,7 +39,8 @@ unsigned char font_arr[64] = {0x01, 0x00, 0x03, 0x00, 0x07, 0x00, 0x0f, 0x00,
                               0x7f, 0x00, 0x3f, 0x00, 0x1f, 0x00, 0x0f, 0x00,
                               0x07, 0x00, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00};
 
-unsigned char r = 0x04, g = 0x00, b = 0x04;
+unsigned char R = 0x04, G = 0x00, B = 0x04;
+int LIGHT_NUM = 16;
 
 void interrupt irs_routine()
 {
@@ -73,15 +66,16 @@ void interrupt irs_routine()
         
         //show the bit from font
         if((font >> buf_bit) & 0x01 == 1){
-            TURN_ON(r, g, b);
+            TURN_ON(R, G, B);
         }
         else{
             TURN_ON(OFF, OFF, OFF);
         }
         
         ++buf_bit;
-        if(++i == 16){
+        if(++i == LIGHT_NUM){
             i = 0;
+
             disable_out();
             delay(20000);
             enable_out();
@@ -93,9 +87,8 @@ void interrupt irs_routine()
        }
     }
     
-    
 Exit:
-    TURN_ALL;
+    turn_off_all(LIGHT_NUM);
     disable_out();
     PIR0bits.INTF = 0;
     return;
@@ -130,14 +123,12 @@ void main(void) {
     return;
 }
 
-
 void init_oc()
 {
     OSCCON1bits.NOSC = 0b000;
     OSCCON1bits.NDIV = 0b0000;
     OSCFRQbits.HFFRQ = 0b0111;
 }
-
 
 void init_port()
 {
@@ -169,14 +160,12 @@ void init_port()
 
 void set_interrupt()
 {
-    //TODO: set it
     INTCONbits.GIE = 1;
     PIE0bits.INTE = 1;
     
     INTCONbits.INTEDG = 0;
-    INTPPS = 0x05;
+    INTPPS = 0x05; //set intpps RA5
 }
-
 
 void set_pps()
 {
@@ -201,7 +190,6 @@ void set_pps()
     TRISAbits.TRISA0 = 0;
 }
 
-
 void set_eusart()
 {
     //set BRC default
@@ -220,7 +208,6 @@ void set_eusart()
     //TX1STAbits.TXEN = 1;
 }
 
-
 void set_cwg()
 {
     //port set input
@@ -233,7 +220,6 @@ void set_cwg()
     CWG1DBR = 0x0C;
     CWG1DBF = 0x07;    
 
-  
     //set auto-shutdown
     CWG1AS0bits.REN = 0;
     CWG1AS0bits.LSAC = 0b10;
@@ -250,7 +236,6 @@ void set_cwg()
     
     //CWG1CON0bits.EN = 1;
 }
-
 
 void set_clc()
 {
@@ -276,7 +261,6 @@ void set_clc()
     //CLC1CONbits.LC1EN = 1;
 }
 
-
 void load_data_from_eeprom()
 {
     unsigned char low_addr = 0x21;
@@ -289,26 +273,6 @@ void load_data_from_eeprom()
         NVMCON1bits.RD = 1;
         while(NVMCON1bits.RD != 0);
         font_arr[font_add + i] = NVMDATL;
-    }
-}
-
-void wrdt2eeprom()
-{
-    NVMCON1bits.NVMREGS = 1;
-    NVMCON1bits.WREN = 1;
-    NVMDATH = 0;
-    NVMADRH = 0x70;
-    NVMADRL = 0x20;
-
-    for(int i = 0; i < 64; ++i){
-        NVMDATL = 0xc0 + i;
-        NVMADRL += 1;
-        // UNLOCK NVM
-        NVMCON2 = 0x55;
-        NVMCON2 = 0xAA;
-        NVMCON1bits.WR = 1;
-
-        while(NVMCON1bits.WR != 0);
     }
 }
 
@@ -337,14 +301,19 @@ void disable_out()
     CLC1CONbits.LC1EN = 0;
 }
 
-
 void out_reset()
 {
     LATAbits.LATA0 = 0;
-    
-    int i = 100;   // i = 95 time = 50.9us; i = 100 time = 53.625us
+    delay(100); // i = 95 time = 50.9us; i = 100 time = 53.625us
+}
+
+void turn_off_all(int num)
+{
+    int i = num * 3;
     while(i > 0){
-        i--;
+        while(PIR3bits.TXIF != 1);
+        TX1REG = OFF;
+        --i;
     }
 }
 
@@ -354,5 +323,24 @@ void delay(int delay_time)
     while(i > 0){
         --i;
     }
-    
+}
+
+void wrdt2eeprom()
+{
+    NVMCON1bits.NVMREGS = 1;
+    NVMCON1bits.WREN = 1;
+    NVMDATH = 0;
+    NVMADRH = 0x70;
+    NVMADRL = 0x20;
+
+    for(int i = 0; i < 64; ++i){
+        NVMDATL = 0xc0 + i;
+        NVMADRL += 1;
+        // UNLOCK NVM
+        NVMCON2 = 0x55;
+        NVMCON2 = 0xAA;
+        NVMCON1bits.WR = 1;
+
+        while(NVMCON1bits.WR != 0);
+    }
 }
