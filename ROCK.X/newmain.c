@@ -22,6 +22,13 @@
     TX1REG = 0x20; \
 } while(0);
 
+#define TURN_ALL do{ \
+    int i = 16; \
+    while(i > 0){ \
+        TURN_OFF; \
+        --i; \
+    } \
+} while(0);
 
 void init_oc();
 void set_pps();
@@ -37,24 +44,63 @@ void out_reset();
 void out_test();
 void delay(int delay_time);
 
+unsigned char font_arr[64] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                              0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+                              0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+                              0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+                              0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+                              0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30,
+                              0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
+                              0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40};
+
 void interrupt irs_routine()
 {
-    //TODO: 
-    enable_out();
+    int buf_bit = 8;
+    int font_addr = -1;
+    unsigned char font;
+    int i = 0;
     
+    enable_out();
     out_reset();
     
-    out_test();
-    
-    delay(10);
-    
-    disable_out();
-    
-    if(LATCbits.LATC1 == 0){
-        goto Exit;
+    while(1){
+       if(buf_bit == 8){
+            buf_bit = 0;
+            ++font_addr;
+            
+            if(font_addr == 64){
+                font_addr = 0;
+            }
+            
+            font = font_arr[font_addr];
+        }
+        
+        //show the bit from font
+        if((font >> buf_bit) & 0x01 == 1){
+            TURN_ON;
+        }
+        else{
+            TURN_OFF;
+        }
+        
+        ++buf_bit;
+        if(++i == 16){
+            i = 0;
+            disable_out();
+            for(int j=0; j < 25; ++j)
+                delay(20000);
+            enable_out();
+            out_reset();
+            
+            if(PORTAbits.RA5 == 0){
+                goto Exit;
+            }
+       }
     }
     
+    
 Exit:
+    TURN_ALL;
     disable_out();
     PIR0bits.INTF = 0;
     return;
@@ -269,31 +315,7 @@ void out_reset()
     while(i > 0){
         i--;
     }
-    i = 0;
 }
-
-
-void out_test()
-{
-    
-    int count = 0;
-   
-    while(count < 16){
-        TURN_ON;
-        count++;
-    }
-    
-    out_reset();
-    
-    TURN_ON;
-    
-    int count = 0;
-    while(count < 8){
-        TURN_OFF;
-        count++;
-    }
-}
-
 
 void delay(int delay_time)
 {
