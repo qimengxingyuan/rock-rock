@@ -33,6 +33,8 @@ void enable_out();
 void disable_out();
 void set_interrupt();
 void out_reset();
+void recv_data();
+void protocol_check();
 
 void out_test();
 void delay(int delay_time);
@@ -84,8 +86,11 @@ void main(void) {
         }
     }
     */
-    
-    while(1);
+
+  
+    while(1){
+     delay(1000);
+    };
     
     return;
 }
@@ -112,9 +117,9 @@ void init_port()
     WPUAbits.WPUA5 = 1;
     
     //LDR -> RC3
-    TRISCbits.TRISC3 = 1;
-    ANSELCbits.ANSC3 = 0;
-    WPUCbits.WPUC3 = 1;
+    TRISCbits.TRISC3 = 1;  //input
+    ANSELCbits.ANSC3 = 0; // Analog input
+    WPUCbits.WPUC3 = 1; // Pull-up enabled
     
     //RC5
     TRISCbits.TRISC5 = 0;
@@ -294,6 +299,34 @@ void out_test()
     }
 }
 
+void recv_data()
+{
+    //RC3
+    char data_tmp[42] = {0}; //all 0
+    char tmp = 1;
+    do{
+        tmp = RC3;
+        //delay(1);
+    }while(tmp = 1);
+    //start
+    for(int i = 0; i < 42; i ++){
+        for(int j = 0; j < 8; j ++){
+            if(RC3 =1 ){
+                tmp = 128;
+            }else{
+                tmp = 0;
+            }
+            data_tmp[i] >> 1; //right shfit
+            data_tmp[i] = data_tmp[i] | tmp; //or opreation
+        }
+    }
+    protocol_check(data_tmp[42]);
+}
+
+void protocol_check(char data[])
+{
+    
+}
 
 void delay(int delay_time)
 {
