@@ -266,7 +266,7 @@ void load_data_from_eeprom()
     unsigned char low_addr = 0x21;
     int font_add = 0;
     NVMCON1bits.NVMREGS = 1; //select EEPROM
-    NVMADRH = 0x70;
+    NVMADRH = 0xF0;
 
     for(int i = 0; i < 64; ++i, ++low_addr){
         NVMADRL = low_addr;
@@ -304,7 +304,7 @@ void disable_out()
 void out_reset()
 {
     LATAbits.LATA0 = 0;
-    delay(100); // i = 95 time = 50.9us; i = 100 time = 53.625us
+    delay(100); // i = 88 time = 50.3125us; i = 100 time = 57.0625us
 }
 
 void turn_off_all(int num)
@@ -330,9 +330,9 @@ void wrdt2eeprom()
     NVMCON1bits.NVMREGS = 1;
     NVMCON1bits.WREN = 1;
     NVMDATH = 0;
-    NVMADRH = 0x70;
+    NVMADRH = 0xF0;
     NVMADRL = 0x20;
-
+    
     for(int i = 0; i < 64; ++i){
         NVMDATL = 0xc0 + i;
         NVMADRL += 1;
