@@ -34,7 +34,8 @@ void disable_out();
 void set_interrupt();
 void out_reset();
 void recv_data();
-void protocol_check();
+char rc_change(); //change rc3
+void write_in_eeprom(char addr, char data[]);
 
 void out_test();
 void delay(int delay_time);
@@ -86,10 +87,9 @@ void main(void) {
         }
     }
     */
-
-  
+    
     while(1){
-     delay(1000);
+       // delay(10000000);
     };
     
     return;
@@ -297,35 +297,107 @@ void out_test()
         TURN_OFF;
         count++;
     }
-}
+} 
 
 void recv_data()
 {
     //RC3
-    char data_tmp[42] = {0}; //all 0
-    char tmp = 1;
-    do{
-        tmp = RC3;
-        //delay(1);
-    }while(tmp = 1);
-    //start
-    for(int i = 0; i < 42; i ++){
-        for(int j = 0; j < 8; j ++){
-            if(RC3 =1 ){
-                tmp = 128;
-            }else{
-                tmp = 0;
-            }
-            data_tmp[i] >> 1; //right shfit
-            data_tmp[i] = data_tmp[i] | tmp; //or opreation
-        }
+    char state = 0;
+    char check[2] = {0};
+    char data_tmp[64] = {0};
+    char recv_data = 0;
+    while(1){
+          if(state == 0){
+              check[0] = check[0] >> 1; //right shfit
+              recv_data = rc_change();
+              check[0] = check[0] | recv_data; //or opreation
+              if(check[0] == 0x55){
+                  state = 1; 
+              }
+          }
+          if(state == 1){
+              //usefull data
+              for(char i = 0; i < 64; i++){
+                  for(char j = 0; j < 8; j++){
+                      data_tmp[i] = data_tmp[i] >> 1; //right shfit
+                      recv_data = rc_change();
+                      data_tmp[i] = data_tmp[i] | recv_data; //or opreation
+                  }
+              }
+              state = 2;
+          }
+          if(state == 2){
+                for(char j = 0; j < 8; j++){
+                      check[1] = check[1] >> 1; //right shfit
+                      recv_data = rc_change();
+                      check[1] = check[1] | recv_data; //or opreation
+                  }
+                if(check[1] == 0x0D){
+                    break;
+                }else{
+                    state = 0;
+                }
+          }
     }
-    protocol_check(data_tmp[42]);
+
+ 
+    ///////////////////////////////////////////stable////////////////////////////////
+//    char data_tmp[42] = {0}; //all 0
+//    char tmp = 1;
+//    do{
+//        tmp = RC3;
+//        //delay(1);
+//    }while(tmp = 1);
+//    //start
+//    for(int i = 0; i < 42; i ++){
+//        for(int j = 0; j < 8; j ++){
+//            if(RC3 =1 ){
+//                tmp = 128;
+//            }else{
+//                tmp = 0;
+//            }
+//            data_tmp[i] >> 1; //right shfit
+//            data_tmp[i] = data_tmp[i] | tmp; //or opreation
+//        }
+//    }
+    //protocol_check(data_tmp[42]);
+////////////////////////////////////////////////////////////////////////////////////////
+    
+      //write in eeprom
+    write_in_eeprom(0xF000, data_tmp);
 }
 
-void protocol_check(char data[])
+char rc_change(){
+    char tmp = 0;
+    if(RC3 =1){
+        tmp = 128; //10000000
+    }
+    return tmp;
+}
+
+void write_in_eeprom(char addr, char data[])
 {
-    
+    NVMADRH = 0xF;
+    for(char i = 0; i < 64; i++){
+        do{}
+        while(NVMCON1bits.WR == 1); //wait write complete
+        NVMADRL = addr + i;  //addr
+        NVMDATL = data[i];    //data
+        NVMCON1bits.NVMREGS = 1;
+        NVMCON1bits.WREN = 1;
+        // close global interrupt
+        INTCONbits.GIE = 0;
+        NVMCON2 = 0x55;
+        NVMCON2 = 0xAA;
+        NVMCON1bits.WR = 1;
+        do{}
+        while(NVMCON1bits.WR == 1);   //wait write complete  
+        //open global interrupt
+        INTCONbits.GIE = 1;
+    }
+        NVMCON1bits.WR = 0 ;  //disable write in eeprom
+        
+        
 }
 
 void delay(int delay_time)
