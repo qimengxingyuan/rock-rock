@@ -28,7 +28,11 @@ void turn_off_all(int num);
 void delay(int delay_time);
 
 void wrdt2eeprom();
+//void wrdt2eeprom(unsigned char data[]);
 void load_data_from_eeprom();
+
+//char rc_change();
+//void recv_data();
 
 unsigned char font_arr[64] = {0x01, 0x00, 0x03, 0x00, 0x07, 0x00, 0x0f, 0x00,
                               0x1f, 0x00, 0x3f, 0x00, 0x7f, 0x00, 0xff, 0x00,
@@ -81,7 +85,7 @@ void interrupt irs_routine()
             enable_out();
             out_reset();
             
-            if(PORTAbits.RA5 == 0){
+            if(PORTAbits.RA5 == 1){
                 goto Exit;
             }
        }
@@ -344,3 +348,57 @@ void wrdt2eeprom()
         while(NVMCON1bits.WR != 0);
     }
 }
+/*
+void recv_data()
+{
+    unsigned char state = 0;
+    unsigned char check = 0;
+    unsigned char data_tmp[64] = {0};
+    unsigned char rc_data = 0;
+    while(1){
+          if(state == 0){
+              check = check << 1; //right shfit
+              rc_data = rc_change();
+              check = check | rc_data; //or opreation
+              if(check == 0x55){
+                  state = 1;
+              }
+          }
+          if(state == 1){
+              //usefull data
+              for(char i = 0; i < 64; i++){
+                  for(char j = 0; j < 8; j++){
+                      data_tmp[i] = data_tmp[i] << 1; //right shfit
+                      rc_data = rc_change();
+                      data_tmp[i] = data_tmp[i] | rc_data; //or opreation
+                  }
+              }
+              state = 2;
+          }
+          if(state == 2){
+                for(char j = 0; j < 8; j++){
+                      check = check << 1; //right shfit
+                      rc_data = rc_change();
+                      check = check | rc_data; //or opreation
+                  }
+                if(check == 0x0D){
+                    break;
+                }else{
+                    state = 0;
+                }
+          }
+    }
+
+    wrdt2eeprom(data_tmp);
+}
+
+char rc_change()
+{
+    if(PORTCbits.RC3 == 1){
+        return 0x01;
+    }
+    else{
+        return 0x00;
+    }
+}
+ * */
