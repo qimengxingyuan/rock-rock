@@ -27,12 +27,12 @@ void out_reset();
 void turn_off_all(int num);
 void delay(int delay_time);
 
-void wrdt2eeprom();
-//void wrdt2eeprom(unsigned char data[]);
+//void wrdt2eeprom();
+void wrdt2eeprom(unsigned char data[]);
 void load_data_from_eeprom();
 
-//char rc_change();
-//void recv_data();
+char rc_change();
+void recv_data();
 
 unsigned char font_arr[64] = {0x01, 0x00, 0x03, 0x00, 0x07, 0x00, 0x0f, 0x00,
                               0x1f, 0x00, 0x3f, 0x00, 0x7f, 0x00, 0xff, 0x00,
@@ -111,14 +111,14 @@ void main(void) {
     
     //TODO:receive data from app
     //load_data_from_eeprom();
-
+    //recv_data(); 
     while(1){
         if(PORTCbits.RC0 == 0){
              // forbid interrupts
             INTCONbits.GIE = 0;
             // data recive
-            wrdt2eeprom(); //recv_data();
-            load_data_from_eeprom();
+            recv_data(); //wrdt2eeprom();
+           // load_data_from_eeprom();
             // allow interrupts
             INTCONbits.GIE = 1;
         }
@@ -149,7 +149,7 @@ void init_port()
     //LDR -> RC3
     TRISCbits.TRISC3 = 1;
     ANSELCbits.ANSC3 = 0;
-    WPUCbits.WPUC3 = 1;
+    //WPUCbits.WPUC3 = 1;
     
     //RC5
     TRISCbits.TRISC5 = 0;
@@ -329,7 +329,7 @@ void delay(int delay_time)
     }
 }
 
-void wrdt2eeprom()
+void wrdt2eeprom(unsigned char data[])
 {
     NVMCON1bits.NVMREGS = 1;
     NVMCON1bits.WREN = 1;
@@ -338,7 +338,7 @@ void wrdt2eeprom()
     NVMADRL = 0x20;
     
     for(int i = 0; i < 64; ++i){
-        NVMDATL = 0xc0 + i;
+        NVMDATL = data[i];
         NVMADRL += 1;
         // UNLOCK NVM
         NVMCON2 = 0x55;
@@ -348,7 +348,7 @@ void wrdt2eeprom()
         while(NVMCON1bits.WR != 0);
     }
 }
-/*
+
 void recv_data()
 {
     unsigned char state = 0;
@@ -394,6 +394,9 @@ void recv_data()
 
 char rc_change()
 {
+    for(int i = 0; i < 5; ++i){
+        delay(18800);
+    }
     if(PORTCbits.RC3 == 1){
         return 0x01;
     }
@@ -401,4 +404,3 @@ char rc_change()
         return 0x00;
     }
 }
- * */
