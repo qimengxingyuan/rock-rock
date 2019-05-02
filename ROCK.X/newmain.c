@@ -4,6 +4,7 @@
 #include <xc.h>
 
 #define OFF 0x00;
+#define TMR_VALUE 0xA2;
 
 #define TURN_ON(_r, _g, _b) do{ \
     while(PIR3bits.TXIF != 1); \
@@ -26,9 +27,14 @@ void set_interrupt();
 void out_reset();
 void turn_off_all(int num);
 void delay(int delay_time);
+void light_lamp();
 
-void wrdt2eeprom();
+//void wrdt2eeprom();
+void wrdt2eeprom(unsigned char data[]);
 void load_data_from_eeprom();
+
+unsigned char rc_vote();
+void recv_data();
 
 unsigned char font_arr[64] = {0x01, 0x00, 0x03, 0x00, 0x07, 0x00, 0x0f, 0x00,
                               0x1f, 0x00, 0x3f, 0x00, 0x7f, 0x00, 0xff, 0x00,
@@ -42,56 +48,21 @@ unsigned char font_arr[64] = {0x01, 0x00, 0x03, 0x00, 0x07, 0x00, 0x0f, 0x00,
 unsigned char R = 0x04, G = 0x00, B = 0x04;
 int LIGHT_NUM = 16;
 
+int rc_bit = 0;;
+int rc_bit_flag = 0;
+
 void interrupt irs_routine()
 {
-    int buf_bit = 8;
-    int font_addr = -1;
-    unsigned char font;
-    int i = 0;
-    
-    enable_out();
-    out_reset();
-    
-    while(1){
-       if(buf_bit == 8){
-            buf_bit = 0;
-            ++font_addr;
-            
-            if(font_addr == 64){
-                font_addr = 0;
-            }
-            
-            font = font_arr[font_addr];
-        }
-        
-        //show the bit from font
-        if((font >> buf_bit) & 0x01 == 1){
-            TURN_ON(R, G, B);
-        }
-        else{
-            TURN_ON(OFF, OFF, OFF);
-        }
-        
-        ++buf_bit;
-        if(++i == LIGHT_NUM){
-            i = 0;
-
-            disable_out();
-            delay(20000);
-            enable_out();
-            out_reset();
-            
-            if(PORTAbits.RA5 == 0){
-                goto Exit;
-            }
-       }
+    if(PIR0bits.TMR0IF == 1){
+        rc_bit = PORTCbits.RC3;
+        rc_bit_flag = 1;
+        PIR0bits.TMR0IF = 0;
     }
-    
-Exit:
-    turn_off_all(LIGHT_NUM);
-    disable_out();
-    PIR0bits.INTF = 0;
-    return;
+    else if(PIR0bits.INTF == 1){
+        light_lamp();
+        PIR0bits.INTF = 0;
+        return;
+    }
 }
 
 void main(void) {
@@ -106,17 +77,12 @@ void main(void) {
     set_clc();
     
     //TODO:receive data from app
-    //load_data_from_eeprom();
-
+    //recv_data();
     while(1){
         if(PORTCbits.RC0 == 0){
-             // forbid interrupts
-            INTCONbits.GIE = 0;
             // data recive
-            wrdt2eeprom(); //recv_data();
-            load_data_from_eeprom();
-            // allow interrupts
-            INTCONbits.GIE = 1;
+            recv_data();
+           // load_data_from_eeprom();
         }
     }
     
@@ -145,7 +111,7 @@ void init_port()
     //LDR -> RC3
     TRISCbits.TRISC3 = 1;
     ANSELCbits.ANSC3 = 0;
-    WPUCbits.WPUC3 = 1;
+    //WPUCbits.WPUC3 = 1;
     
     //RC5
     TRISCbits.TRISC5 = 0;
@@ -161,10 +127,19 @@ void init_port()
 void set_interrupt()
 {
     INTCONbits.GIE = 1;
+    INTCONbits.PEIE = 1;
     PIE0bits.INTE = 1;
     
     INTCONbits.INTEDG = 0;
     INTPPS = 0x05; //set intpps RA5
+
+    T0CON0bits.T0EN = 1;
+    T0CON0bits.T016BIT = 0;
+    T0CON0bits.T0OUTPS = 0b0000;
+    T0CON1bits.T0CS = 0b010;
+    T0CON1bits.T0ASYNC = 0;
+    T0CON1bits.T0CKPS = 0b1101;
+    TMR0H = TMR_VALUE;
 }
 
 void set_pps()
@@ -325,8 +300,62 @@ void delay(int delay_time)
     }
 }
 
-void wrdt2eeprom()
+void light_lamp()
 {
+    int buf_bit = 8;
+    int font_addr = -1;
+    unsigned char font;
+    int i = 0;
+
+    enable_out();
+    out_reset();
+
+    while(1){
+       if(buf_bit == 8){
+            buf_bit = 0;
+            ++font_addr;
+
+            if(font_addr == 64){
+                font_addr = 0;
+            }
+
+            font = font_arr[font_addr];
+        }
+
+        //show the bit from font
+        if((font >> buf_bit) & 0x01 == 1){
+            TURN_ON(R, G, B);
+        }
+        else{
+            TURN_ON(OFF, OFF, OFF);
+        }
+
+        ++buf_bit;
+        if(++i == LIGHT_NUM){
+            i = 0;
+
+            disable_out();
+            delay(20000);
+            enable_out();
+            out_reset();
+
+            if(PORTAbits.RA5 == 1){
+                goto Exit;
+            }
+       }
+    }
+
+Exit:
+    turn_off_all(LIGHT_NUM);
+    disable_out();
+    return;
+}
+
+void wrdt2eeprom(unsigned char data[])
+{
+    // forbid interrupts
+    INTCONbits.GIE = 0;
+
     NVMCON1bits.NVMREGS = 1;
     NVMCON1bits.WREN = 1;
     NVMDATH = 0;
@@ -334,7 +363,7 @@ void wrdt2eeprom()
     NVMADRL = 0x20;
     
     for(int i = 0; i < 64; ++i){
-        NVMDATL = 0xc0 + i;
+        NVMDATL = data[i];
         NVMADRL += 1;
         // UNLOCK NVM
         NVMCON2 = 0x55;
@@ -342,5 +371,130 @@ void wrdt2eeprom()
         NVMCON1bits.WR = 1;
 
         while(NVMCON1bits.WR != 0);
+    }
+    // allow interrupts
+    INTCONbits.GIE = 1;
+}
+
+void recv_data()
+{
+    unsigned char state = 0;
+    unsigned char check = 0;
+    unsigned char data_tmp[64] = {0};
+    unsigned char rc_data = 0;
+
+    PIE0bits.TMR0IE = 1;
+    PIE0bits.INTE = 0;
+
+    while(1){
+          if(state == 0){
+              check = check << 1; //right shfit
+              rc_data = rc_vote();
+              //under is light control for debug,turn off
+              enable_out();
+              TURN_ON(OFF, OFF, OFF);
+              disable_out();
+              //above is light control for debug
+              check = check | rc_data; //or opreation
+              if(check == 0x55){
+                  state = 1;
+                  //under is light control for debug, 0x55 succeed:second is green
+                  enable_out();
+                  TURN_ON(0x00, 0x00, 0x00);
+                  TURN_ON(0x00, 0x80, 0x00);
+                  disable_out();
+                  //above is light control for debug
+              }
+          }
+          if(state == 1){
+              //usefull data
+              for(char i = 0; i < 64; i++){
+                  for(char j = 0; j < 8; j++){
+                      data_tmp[i] = data_tmp[i] << 1; //right shfit
+                      rc_data = rc_vote();
+                      //under is light control for debug,turn off
+                      enable_out();
+                      TURN_ON(OFF, OFF, OFF);
+                      disable_out();
+                      //above is light control for debug
+                      data_tmp[i] = data_tmp[i] | rc_data; //or opreation
+                  }
+              }
+              state = 2;
+              //under is light control for debug, data succeed:third is green
+                enable_out();
+                TURN_ON(0x00, 0x00, 0x00);
+                TURN_ON(0x00, 0x80, 0x00);
+                TURN_ON(0x00, 0x80, 0x00);
+                disable_out();
+              //above is light control for debug
+          }
+          if(state == 2){
+                for(char j = 0; j < 8; j++){
+                      check = check << 1; //right shfit
+                      rc_data = rc_vote();
+                      //under is light control for debug,turn off
+                      enable_out();
+                      TURN_ON(OFF, OFF, OFF);
+                      disable_out();
+                      //above is light control for debug
+                      check = check | rc_data; //or opreation
+                  }
+                if(check == 0x0D){
+                    //under is light control for debug, 0x0D succeed:forth is green
+                    enable_out();
+                    TURN_ON(0x00, 0x00, 0x00);
+                    TURN_ON(0x00, 0x80, 0x00);
+                    TURN_ON(0x00, 0x80, 0x00);
+                    TURN_ON(0x00, 0x80, 0x00);
+                    disable_out();
+                    //above is light control for debug
+                    break;
+                }else{
+                    state = 0;
+                    //under is light control for debug 0x0D failed:forth is red
+                    enable_out();
+                    TURN_ON(0x00, 0x00, 0x00);
+                    TURN_ON(0x00, 0x80, 0x00);
+                    TURN_ON(0x00, 0x80, 0x00);
+                    TURN_ON(0x80, 0x00, 0x00);
+                    disable_out();
+                    break;// delete it after debug
+                    //above is light control for debug
+                }
+          }
+    }
+
+    PIE0bits.TMR0IE = 0;
+    //wrdt2eeprom(data_tmp);
+    PIE0bits.INTE = 1;
+}
+
+unsigned char rc_vote()
+{
+    int vote_counter = 0;
+    int vote_rc[3];
+    while(vote_counter < 3){
+        if(rc_bit_flag){
+            vote_rc[vote_counter] = rc_bit;
+            rc_bit_flag = 0;
+            vote_counter += 1;
+        }
+    }
+    if(vote_rc[0] && vote_rc[1] || vote_rc[0] && vote_rc[1] || vote_rc[0] && vote_rc[1]){
+        //under is light control for debug 1??> first is green
+        enable_out();
+        TURN_ON(0x00, 0x01, 0x00);
+        disable_out();
+        //above is light control for debug
+        return 0x01;
+    }
+    else{
+        //under is light control for debug 0??> first is red
+        enable_out();
+        TURN_ON(0x01, 0x00, 0x00);
+        disable_out();
+        //above is light control for debug
+        return 0x00;
     }
 }
