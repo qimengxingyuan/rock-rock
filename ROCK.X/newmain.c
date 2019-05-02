@@ -482,7 +482,7 @@ unsigned char rc_vote()
         }
     }
     if(vote_rc[0] && vote_rc[1] || vote_rc[0] && vote_rc[1] || vote_rc[0] && vote_rc[1]){
-        //under is light control for debug 1??> first is green
+        //under is light control for debug 1: first is green
         enable_out();
         TURN_ON(0x00, 0x01, 0x00);
         disable_out();
@@ -490,7 +490,7 @@ unsigned char rc_vote()
         return 0x01;
     }
     else{
-        //under is light control for debug 0??> first is red
+        //under is light control for debug, 0: first is red
         enable_out();
         TURN_ON(0x01, 0x00, 0x00);
         disable_out();
