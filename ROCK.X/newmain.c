@@ -4,7 +4,7 @@
 #include <xc.h>
 
 #define OFF 0x00;
-#define TMR_VALUE 0xA2;
+#define TMR_VALUE 0x7C;
 
 #define TURN_ON(_r, _g, _b) do{ \
     while(PIR3bits.TXIF != 1); \
@@ -138,7 +138,7 @@ void set_interrupt()
     T0CON0bits.T0OUTPS = 0b0000;
     T0CON1bits.T0CS = 0b010;
     T0CON1bits.T0ASYNC = 0;
-    T0CON1bits.T0CKPS = 0b1101;
+    T0CON1bits.T0CKPS = 0b1100;
     TMR0H = TMR_VALUE;
 }
 
@@ -383,8 +383,13 @@ void recv_data()
     unsigned char data_tmp[64] = {0};
     unsigned char rc_data = 0;
 
-    PIE0bits.TMR0IE = 1;
     PIE0bits.INTE = 0;
+    while(1){
+        if(PORTCbits.RC3 == 0){
+            PIE0bits.TMR0IE = 1;
+            break;
+        }
+    }
 
     while(1){
           if(state == 0){
@@ -408,7 +413,7 @@ void recv_data()
           }
           if(state == 1){
               //usefull data
-              for(char i = 0; i < 64; i++){
+              for(char i = 0; i < 16; i++){
                   for(char j = 0; j < 8; j++){
                       data_tmp[i] = data_tmp[i] << 1; //right shfit
                       rc_data = rc_vote();
@@ -440,7 +445,7 @@ void recv_data()
                       //above is light control for debug
                       check = check | rc_data; //or opreation
                   }
-                if(check == 0x0D){
+                if(check == 0x15){
                     //under is light control for debug, 0x0D succeed:forth is green
                     enable_out();
                     TURN_ON(0x00, 0x00, 0x00);
@@ -448,6 +453,7 @@ void recv_data()
                     TURN_ON(0x00, 0x80, 0x00);
                     TURN_ON(0x00, 0x80, 0x00);
                     disable_out();
+                    while(1);
                     //above is light control for debug
                     break;
                 }else{
@@ -459,6 +465,7 @@ void recv_data()
                     TURN_ON(0x00, 0x80, 0x00);
                     TURN_ON(0x80, 0x00, 0x00);
                     disable_out();
+                    while(1);
                     break;// delete it after debug
                     //above is light control for debug
                 }
@@ -481,7 +488,7 @@ unsigned char rc_vote()
             vote_counter += 1;
         }
     }
-    if(vote_rc[0] && vote_rc[1] || vote_rc[0] && vote_rc[1] || vote_rc[0] && vote_rc[1]){
+    if(vote_rc[0] && vote_rc[1] || vote_rc[0] && vote_rc[2] || vote_rc[2] && vote_rc[1]){
         //under is light control for debug 1: first is green
         enable_out();
         TURN_ON(0x00, 0x01, 0x00);
