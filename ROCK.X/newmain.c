@@ -82,7 +82,7 @@ void main(void) {
         if (PORTCbits.RC0 == 0) {
             // data recive
             recv_data();
-            // load_data_from_eeprom();
+            load_data_from_eeprom();
         }
     }
 
@@ -396,18 +396,18 @@ void recv_data() {
         }
         if (state == 1) {
             //usefull data
-            for (char i = 0; i < 32; i++) {
+            for (char i = 1; i <= 32; i++) {
                 sync_time();
-                for (char k = 0; k < 2; k++) {
+                for (char k = 2; k > 0; k--) {
                     for (char j = 0; j < 8; j++) {
-                        data_tmp[i] = data_tmp[i] << 1; //right shfit
+                        data_tmp[2*i - k] = data_tmp[2*i - k] << 1; //right shfit; 2i-k is address in data_tmp
                         rc_data = rc_vote();
                         //under is light control for debug,turn off
                         enable_out();
                         TURN_ON(OFF, OFF, OFF);
                         disable_out();
                         //above is light control for debug
-                        data_tmp[i] = data_tmp[i] | rc_data; //or opreation
+                        data_tmp[2*i - k] = data_tmp[2*i - k] | rc_data; //or opreation
                     }
                 }
             }
@@ -440,7 +440,8 @@ void recv_data() {
                 TURN_ON(0x00, 0x80, 0x00);
                 TURN_ON(0x00, 0x80, 0x00);
                 disable_out();
-                while (1);
+                wrdt2eeprom(data_tmp);
+                //while (1);
                 //above is light control for debug
                 break;
             } else {
@@ -452,7 +453,7 @@ void recv_data() {
                 TURN_ON(0x00, 0x80, 0x00);
                 TURN_ON(0x80, 0x00, 0x00);
                 disable_out();
-                while (1);
+                //while (1);
                 break; // delete it after debug
                 //above is light control for debug
             }
@@ -460,7 +461,6 @@ void recv_data() {
     }
 
     PIE0bits.TMR0IE = 0;
-    //wrdt2eeprom(data_tmp);
     PIE0bits.INTE = 1;
 }
 
