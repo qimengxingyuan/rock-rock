@@ -320,7 +320,7 @@ void light_lamp() {
             i = 0;
 
             disable_out();
-            delay(20000);
+            delay(1000);
             enable_out();
             out_reset();
 
