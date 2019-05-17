@@ -28,6 +28,8 @@ void out_reset();
 void turn_off_all(int num);
 void delay(int delay_time);
 void light_lamp();
+void sync_time();
+void show_flag(char i);
 
 //void wrdt2eeprom();
 void wrdt2eeprom(unsigned char data[]);
@@ -394,7 +396,8 @@ void recv_data() {
         }
         if (state == 1) {
             //usefull data
-            for (char i = 0; i < 16; i++) {
+            for (char i = 0; i < 32; i++) {
+                sync_time();
                 for (char k = 0; k < 2; k++) {
                     for (char j = 0; j < 8; j++) {
                         data_tmp[i] = data_tmp[i] << 1; //right shfit
@@ -418,6 +421,7 @@ void recv_data() {
             //above is light control for debug
         }
         if (state == 2) {
+            sync_time();
             for (char j = 0; j < 8; j++) {
                 check = check << 1; //right shfit
                 rc_data = rc_vote();
@@ -485,4 +489,17 @@ unsigned char rc_vote() {
         //above is light control for debug
         return 0x00;
     }
+}
+
+//the sync single is 0xFE
+void sync_time() {
+    PIE0bits.TMR0IE = 0;
+    delay(6000);
+    while (1) {
+        if (PORTCbits.RC3 == 0) {
+            PIE0bits.TMR0IE = 1;
+            break;
+        }
+    }
+    rc_vote();
 }
