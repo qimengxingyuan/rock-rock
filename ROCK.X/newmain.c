@@ -78,6 +78,7 @@ void main(void) {
 
     //TODO:receive data from app
     //recv_data();
+    load_data_from_eeprom();
     while (1) {
         if (PORTCbits.RC0 == 0) {
             // data recive
@@ -268,7 +269,7 @@ void disable_out() {
 
 void out_reset() {
     LATAbits.LATA0 = 0;
-    delay(100); // i = 88 time = 50.3125us; i = 100 time = 57.0625us
+    delay(25); // i = 88 time = 50.3125us; i = 100 time = 57.0625us
 }
 
 void turn_off_all(int num) {
@@ -288,7 +289,7 @@ void delay(int delay_time) {
 }
 
 void light_lamp() {
-    int buf_bit = 8;
+    int buf_bit = -1;
     int font_addr = -1;
     unsigned char font;
     int i = 0;
@@ -297,8 +298,8 @@ void light_lamp() {
     out_reset();
 
     while (1) {
-        if (buf_bit == 8) {
-            buf_bit = 0;
+        if (buf_bit < 0) {
+            buf_bit = 7;
             ++font_addr;
 
             if (font_addr == 64) {
@@ -315,12 +316,12 @@ void light_lamp() {
             TURN_ON(OFF, OFF, OFF);
         }
 
-        ++buf_bit;
+        -- buf_bit;
         if (++i == LIGHT_NUM) {
             i = 0;
 
             disable_out();
-            delay(1000);
+            delay(380);
             enable_out();
             out_reset();
 
@@ -453,6 +454,7 @@ void recv_data() {
                 TURN_ON(0x00, 0x80, 0x00);
                 TURN_ON(0x80, 0x00, 0x00);
                 disable_out();
+                wrdt2eeprom(data_tmp);
                 //while (1);
                 break; // delete it after debug
                 //above is light control for debug
@@ -494,7 +496,11 @@ unsigned char rc_vote() {
 //the sync single is 0xFE
 void sync_time() {
     PIE0bits.TMR0IE = 0;
-    delay(6000);
+    for(int j = 0; j < 4; ++j){
+            delay(25000);
+    }
+    
+    int lbs = 1;
     while (1) {
         if (PORTCbits.RC3 == 0) {
             PIE0bits.TMR0IE = 1;
